@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>そろばんアプリ - 学習モード搭載</title>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gold-gradient: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --active-tab: rgba(255, 255, 255, 0.3);
+            --accent-color: #ffd700;
+            --correct-color: #00ff88;
+            --error-color: #ff4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--bg-gradient);
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            color: #fff;
+            overflow: hidden;
+            transition: background 1s ease;
+        }
+
+        body.gold-mode {
+            background: var(--gold-gradient);
+        }
+
+        .app-container {
+            width: 95%;
+            max-width: 800px;
+            padding: 15px 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        /* タブ切り替え */
+        .tab-container {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            background: rgba(0,0,0,0.1);
+            padding: 5px;
+            border-radius: 50px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            padding: 6px 15px;
+            border: none;
+            background: transparent;
+            color: #fff;
+            border-radius: 40px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--active-tab);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .header {
+            margin-bottom: 5px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.3rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .streak-info {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            background: rgba(0,0,0,0.2);
+            padding: 4px 15px;
+            border-radius: 20px;
+            display: inline-flex;
+        }
+
+        .title-badge {
+            color: var(--accent-color);
+            font-weight: 700;
+        }
+
+        /* コントロールパネル */
+        .controls-panel {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            width: 100%;
+            margin-bottom: 5px;
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        .controls-panel.active {
+            display: flex;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 4px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: nowrap;
+        }
+
+        .place-btn, .level-btn, .action-btn, .speed-btn {
+            padding: 8px 2px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+            flex: 1;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .place-btn:hover, .level-btn:hover, .action-btn:hover, .speed-btn:hover {
+            background: rgba(255,255,255,0.25);
+            transform: translateY(-1px);
+        }
+
+        .place-btn.active, .speed-btn.active {
+            background: var(--active-tab);
+            border-color: var(--accent-color);
+        }
+
+        .action-btn.toggle-answer, .action-btn.start-btn {
+            background: rgba(102, 126, 234, 0.4);
+            flex: 1.5;
+        }
+        
+        .action-btn.ok-btn {
+            background: rgba(0, 255, 136, 0.3);
+            flex: 1.5;
+        }
+
+        .answer-display {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            min-height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.2);
+            width: 100%;
+            border-radius: 12px;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+            position: relative;
+        }
+
+        .answer-display.visible {
+            visibility: visible;
+        }
+
+        /* 記録パネル */
+        .record-panel {
+            width: 100%;
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.1);
+            border-radius: 15px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .record-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 1.1rem;
+        }
+
+        .record-item:last-child { border-bottom: none; }
+        .record-val { font-weight: 700; color: var(--accent-color); }
+
+        /* フィードバック演出 */
+        .feedback-overlay {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            font-size: 12rem;
+            color: var(--correct-color);
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        .feedback-overlay.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+        .feedback-overlay.cross {
+            color: var(--error-color);
+        }
+
+        /* そろばん本体 */
+        .soroban-board {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1.6 / 1;
+            background-image: url('https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_jiku.png');
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-around;
+            padding: 5.5% 4.5%;
+        }
+
+        .column {
+            position: relative;
+            height: 100%;
+            width: 16%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .upper-area {
+            position: relative;
+            width: 100%;
+            height: 22%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .lower-area {
+            position: relative;
+            width: 100%;
+            height: 68%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .bead {
+            width: 90%;
+            max-width: 120px;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+            user-select: none;
+            -webkit-user-drag: none;
+            cursor: pointer;
+            transition: transform 0.1s ease-out;
+        }
+
+        .bead-upper { transform: translateY(-7%); }
+        .bead-upper.set { transform: translateY(137%); }
+        .bead-lower { margin-top: -2.2%; transform: translateY(20%); }
+        .bead-lower.set { transform: translateY(-201%); }
+
+        /* ガイドアニメーション */
+        @keyframes bead-flash {
+            0%, 100% { filter: drop-shadow(0 0 0px transparent); }
+            50% { filter: drop-shadow(0 0 15px var(--error-color)) brightness(1.5); }
+        }
+        .guide-flash {
+            animation: bead-flash 0.5s infinite;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.1rem; }
+            .streak-info { font-size: 0.75rem; padding: 3px 10px; }
+            .app-container { padding: 10px 15px; border-radius: 16px; }
+            .answer-display { font-size: 1.8rem; min-height: 2.2rem; }
+            .place-btn, .level-btn, .action-btn, .speed-btn { font-size: 0.7rem; padding: 6px 1px; }
+            .tab-btn { padding: 5px 10px; font-size: 0.75rem; }
+            .record-item { font-size: 0.95rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="switchMode('free')">そろばん</button>
+            <button class="tab-btn" onclick="switchMode('random')">ランダム</button>
+            <button class="tab-btn" onclick="switchMode('input')">入力</button>
+            <button class="tab-btn" onclick="switchMode('addition')">たし算</button>
+            <button class="tab-btn" onclick="switchMode('subtraction')">ひき算</button>
+            <button class="tab-btn" onclick="switchMode('record')">記録</button>
+        </div>
+
+        <div class="header">
+            <h1 id="mode-title">そろばんモード</h1>
+            <div id="streak-container" class="streak-info" style="display: none;">
+                <span>連勝: <span id="current-streak" class="record-val">0</span></span>
+                <span>称号: <span id="current-title" class="title-badge">なし</span></span>
+            </div>
+        </div>
+
+        <!-- そろばんモードパネル -->
+        <div id="free-panel" class="controls-panel active">
+            <div class="btn-group">
+                <button class="action-btn" onclick="clearBoard()">クリア</button>
+            </div>
+        </div>
+
+        <!-- ランダムモードパネル -->
+        <div id="random-panel" class="controls-panel">
+            <div class="btn-group">
+                <button class="place-btn" onclick="generateRandomQuestion(1)">一</button>
+                <button class="place-btn" onclick="generateRandomQuestion(10)">十</button>
+                <button class="place-btn" onclick="generateRandomQuestion(100)">百</button>
+                <button class="place-btn" onclick="generateRandomQuestion(1000)">千</button>
+                <button class="action-btn toggle-answer" onclick="toggleAnswer()">答え 表示</button>
+                <button class="action-btn" onclick="clearBoard()">クリア</button>
+            </div>
+            <div id="answer-text" class="answer-display">?</div>
+        </div>
+
+        <!-- たし算・ひき算モードパネル -->
+        <div id="quiz-panel" class="controls-panel">
+            <div class="btn-group">
+                <button class="level-btn" onclick="generateQuizQuestion(1)">Lv.1</button>
+                <button class="level-btn" onclick="generateQuizQuestion(2)">Lv.2</button>
+                <button class="level-btn" onclick="generateQuizQuestion(3)">Lv.3</button>
+                <button class="level-btn" onclick="generateQuizQuestion(4)">Lv.4</button>
+                <button class="action-btn" onclick="clearBoard()">クリア</button>
+            </div>
+            <div id="problem-text" class="answer-display visible">?</div>
+        </div>
+
+        <!-- 入力モードパネル -->
+        <div id="input-panel" class="controls-panel">
+            <div class="btn-group" style="margin-bottom: 5px;">
+                <button class="place-btn input-digit-btn" data-digit="1" onclick="setInputDigit(1, this)">一</button>
+                <button class="place-btn input-digit-btn" data-digit="10" onclick="setInputDigit(10, this)">十</button>
+                <button class="place-btn input-digit-btn" data-digit="100" onclick="setInputDigit(100, this)">百</button>
+                <button class="place-btn input-digit-btn" data-digit="1000" onclick="setInputDigit(1000, this)">千</button>
+            </div>
+            <div id="input-display" class="answer-display">準備完了</div>
+        </div>
+
+        <!-- 記録パネル -->
+        <div id="record-panel" class="controls-panel">
+            <div class="record-panel" id="record-list">
+                <!-- JavaScriptで生成 -->
+            </div>
+            <button class="action-btn" style="margin-top: 10px; width: 100%;" onclick="resetRecords()">記録をリセット</button>
+        </div>
+
+        <div class="soroban-board" id="soroban">
+            <!-- 各列の配置：col-4が千、col-1が一 -->
+            <div class="column" id="col-4">
+                <div class="upper-area"><img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-upper" alt="珠"></div>
+                <div class="lower-area">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                </div>
+            </div>
+            <div class="column" style="left: 0.7%;" id="col-3">
+                <div class="upper-area"><img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-upper" alt="珠"></div>
+                <div class="lower-area">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                </div>
+            </div>
+            <div class="column" style="left: 1.2%;" id="col-2">
+                <div class="upper-area"><img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-upper" alt="珠"></div>
+                <div class="lower-area">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                </div>
+            </div>
+            <div class="column" style="left: 1.8%;" id="col-1">
+                <div class="upper-area"><img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-upper" alt="珠"></div>
+                <div class="lower-area">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                </div>
+            </div>
+            <!-- col-0は使用しないため非表示 -->
+            <div class="column" style="left: 1.8%; visibility: hidden; pointer-events: none;" id="col-0">
+                <div class="upper-area"><img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-upper" alt="珠"></div>
+                <div class="lower-area">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                    <img src="https://raw.githubusercontent.com/byakusen/glgelgo.soroban_zairyou/main/soroban_tama.png" class="bead bead-lower" alt="珠">
+                </div>
+            </div>
+        </div>
+
+        <div id="feedback" class="feedback-overlay">〇</div>
+        <div id="feedback-cross" class="feedback-overlay cross">×</div>
+    </div>
+
+    <script>
+        let currentMode = 'free';
+        let currentLevel = 1;
+        let currentProblem = null;
+        let currentStepIndex = 0;
+        let lastProblemKey = "";
+        let currentAnswer = 0;
+        
+        // 入力モード用
+        let inputDigitLimit = 10;
+        let targetInputNumber = 0;
+        let inputTimer = null;
+        
+        // ゲーミフィケーション変数
+        let currentStreak = 0;
+        let highScores = JSON.parse(localStorage.getItem('soroban_highscores')) || {};
+        
+        const moveSound = new Audio('https://github.com/byakusen/glgleige.soroban_oto/raw/refs/heads/main/soroban.wav');
+        const buzzerSound = new Audio('https://github.com/byakusen/gogelige.quiz/raw/refs/heads/main/quiz_huseikai.mp3');
+        const correctSound = new Audio('https://github.com/byakusen/gogelige.quiz/raw/refs/heads/main/quiz_seikai.mp3');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initBeadInteractions();
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') { e.preventDefault(); toggleAnswer(); }
+            });
+            updateStreakUI();
+            
+            // 入力モードの初期選択状態をdata-digit属性で設定（順序変更に強い）
+            const defaultInputBtn = document.querySelector(`.input-digit-btn[data-digit="${inputDigitLimit}"]`);
+            if (defaultInputBtn) defaultInputBtn.classList.add('active');
+        });
+
+        function switchMode(mode) {
+            currentMode = mode;
+            if (inputTimer) clearTimeout(inputTimer);
+            const tabs = document.querySelectorAll('.tab-btn');
+            const freePanel = document.getElementById('free-panel');
+            const randomPanel = document.getElementById('random-panel');
+            const quizPanel = document.getElementById('quiz-panel');
+            const inputPanel = document.getElementById('input-panel');
+            const recordPanel = document.getElementById('record-panel');
+            const streakContainer = document.getElementById('streak-container');
+            const title = document.getElementById('mode-title');
+            const soroban = document.getElementById('soroban');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            if (freePanel) freePanel.classList.remove('active');
+            randomPanel.classList.remove('active');
+            quizPanel.classList.remove('active');
+            inputPanel.classList.remove('active');
+            recordPanel.classList.remove('active');
+            
+            // 指示：ランダムタブでも連勝情報を非表示にする
+            streakContainer.style.display = (mode === 'free' || mode === 'record' || mode === 'random') ? 'none' : 'inline-flex';
+            soroban.style.display = (mode === 'record') ? 'none' : 'flex';
+
+            if (mode === 'free') {
+                tabs[0].classList.add('active');
+                if (freePanel) freePanel.classList.add('active');
+                title.innerText = 'そろばんモード';
+            } else if (mode === 'random') {
+                tabs[1].classList.add('active');
+                randomPanel.classList.add('active');
+                title.innerText = 'ランダムモード';
+                hideAnswer();
+            } else if (mode === 'input') {
+                tabs[2].classList.add('active');
+                inputPanel.classList.add('active');
+                title.innerText = '入力モード';
+                document.getElementById('input-display').classList.add('visible');
+                document.getElementById('input-display').innerText = '桁を選んで開始';
+            } else if (mode === 'addition') {
+                tabs[3].classList.add('active');
+                quizPanel.classList.add('active');
+                title.innerText = 'たし算モード';
+            } else if (mode === 'subtraction') {
+                tabs[4].classList.add('active');
+                quizPanel.classList.add('active');
+                title.innerText = 'ひき算モード';
+            } else if (mode === 'record') {
+                tabs[5].classList.add('active');
+                recordPanel.classList.add('active');
+                title.innerText = '学習の記録';
+                displayRecords();
+            }
+            
+            if (mode !== 'record') {
+                clearBoard();
+                resetStreak();
+            }
+        }
+
+        function initBeadInteractions() {
+            const beads = document.querySelectorAll('.bead');
+            beads.forEach(bead => {
+                bead.addEventListener('click', () => {
+                    handleBeadAction(bead);
+                });
+            });
+        }
+
+        function handleBeadAction(bead) {
+            if ((currentMode === 'addition' || currentMode === 'subtraction') && currentProblem) {
+                checkQuizStep(bead);
+            } else {
+                toggleBead(bead);
+                playSorobanSound();
+                updateCurrentTotal();
+
+                // 入力モード時、最後の入力から2秒後に判定するタイマーを開始
+                if (currentMode === 'input') {
+                    if (inputTimer) clearTimeout(inputTimer);
+                    inputTimer = setTimeout(() => {
+                        checkInputAnswer();
+                    }, 2000);
+                }
+            }
+        }
+
+        function toggleBead(bead) {
+            if (bead.classList.contains('bead-upper')) {
+                bead.classList.toggle('set');
+            } else {
+                const column = bead.closest('.column');
+                const lowerBeads = Array.from(column.querySelectorAll('.bead-lower'));
+                const index = lowerBeads.indexOf(bead);
+                if (!bead.classList.contains('set')) {
+                    for (let i = 0; i <= index; i++) lowerBeads[i].classList.add('set');
+                } else {
+                    for (let i = index; i < lowerBeads.length; i++) lowerBeads[i].classList.remove('set');
+                }
+            }
+        }
+
+        // 入力モード制御
+        function setInputDigit(digit, btn) {
+            inputDigitLimit = digit;
+            document.querySelectorAll('.input-digit-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // 桁変更時は連勝リセット（startInputModeが新しい問題を開始する）
+            if (currentMode === 'input' && targetInputNumber > 0) {
+                resetStreak();
+            }
+            startInputMode(); // 桁選択で自動開始
+        }
+
+        function startInputMode() {
+            if (inputTimer) clearTimeout(inputTimer);
+            clearBoard(false); // 音なしでクリア
+            const display = document.getElementById('input-display');
+            
+            // 桁数に応じたランダム数値生成
+            const min = inputDigitLimit;
+            const max = (inputDigitLimit * 10) - 1;
+            targetInputNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+            
+            display.innerText = targetInputNumber;
+            display.classList.add('visible');
+        }
+
+        function checkInputAnswer() {
+            const currentTotal = calculateCurrentTotal();
+            if (currentTotal === targetInputNumber) {
+                showSuccess();
+                // 成功時は1.5秒後に次の問題を自動生成
+                setTimeout(() => {
+                    if (currentMode === 'input') startInputMode();
+                }, 1500);
+            } else {
+                showError(); // ✗の表示
+                playBuzzerSound();
+                resetStreak();
+                // 1.5秒後にリトライ（次の問題へ）
+                setTimeout(() => {
+                    if (currentMode === 'input') startInputMode();
+                }, 1500);
+            }
+        }
+
+        function calculateCurrentTotal() {
+            const columns = [
+                document.getElementById('col-0'), document.getElementById('col-1'),
+                document.getElementById('col-2'), document.getElementById('col-3'),
+                document.getElementById('col-4')
+            ];
+            let total = 0;
+            columns.forEach((col, idx) => {
+                if(!col) return;
+                let colValue = 0;
+                const upper = col.querySelector('.bead-upper');
+                if (upper && upper.classList.contains('set')) colValue += 5;
+                const lowerSetCount = col.querySelectorAll('.bead-lower.set').length;
+                colValue += lowerSetCount;
+                
+                const power = idx - 1; 
+                if (idx > 0) total += colValue * Math.pow(10, power);
+            });
+            return total;
+        }
+
+        // 運珠ロジックの生成 (Core Logic - 現状維持)
+        function calculateSteps(currentVal, num, mode, level) {
+            let steps = [];
+            const targetVal = (mode === 'addition') ? (currentVal + num) : (currentVal - num);
+            
+            const v_before = currentVal % 10;
+            const u_before = v_before >= 5;
+            const l_before = v_before % 5;
+            
+            const v_after = targetVal % 10;
+            const u_after = v_after >= 5;
+            const l_after = v_after % 5;
+            
+            const t_before = Math.floor(currentVal / 10) % 10;
+            const t_after = Math.floor(targetVal / 10) % 10;
+
+            const isCarryUp = (t_after > t_before);
+            const isCarryDown = (t_after < t_before);
+
+            if (isCarryDown) {
+                // 十の位を1減らす：現在の十の位の値に基づき正しい珠を操作
+                const t_u_before = t_before >= 5;
+                const t_l_before = t_before % 5;
+                const t_u_after_tens = t_after >= 5;
+                const t_l_after_tens = t_after % 5;
+
+                if (t_u_before !== t_u_after_tens) {
+                    steps.push({ col: 'col-2', type: 'upper', set: t_u_after_tens });
+                }
+                if (t_l_before !== t_l_after_tens) {
+                    if (t_l_after_tens > t_l_before) {
+                        steps.push({ col: 'col-2', type: 'lower', idx: t_l_after_tens - 1, set: true });
+                    } else {
+                        steps.push({ col: 'col-2', type: 'lower', idx: t_l_after_tens, set: false });
+                    }
+                }
+            }
+
+            if (mode === 'addition') {
+                if (level === 4) {
+                    if (l_before !== l_after) {
+                        if (l_after > l_before) {
+                            steps.push({ col: 'col-1', type: 'lower', idx: l_after - 1, set: true });
+                        } else {
+                            steps.push({ col: 'col-1', type: 'lower', idx: l_after, set: false });
+                        }
+                    }
+                    if (u_before !== u_after) {
+                        steps.push({ col: 'col-1', type: 'upper', set: u_after });
+                    }
+                } else {
+                    if (u_before !== u_after) {
+                        steps.push({ col: 'col-1', type: 'upper', set: u_after });
+                    }
+                    if (l_before !== l_after) {
+                        if (l_after > l_before) {
+                            steps.push({ col: 'col-1', type: 'lower', idx: l_after - 1, set: true });
+                        } else {
+                            steps.push({ col: 'col-1', type: 'lower', idx: l_after, set: false });
+                        }
+                    }
+                }
+            } else {
+                const isSpecialLv4Sub = (level === 4 && [6, 7, 8, 9].includes(num));
+                if (isSpecialLv4Sub) {
+                    if (u_before !== u_after) {
+                        steps.push({ col: 'col-1', type: 'upper', set: u_after });
+                    }
+                    if (l_before !== l_after) {
+                        if (l_after > l_before) {
+                            steps.push({ col: 'col-1', type: 'lower', idx: l_after - 1, set: true });
+                        } else {
+                            steps.push({ col: 'col-1', type: 'lower', idx: l_after, set: false });
+                        }
+                    }
+                } else {
+                    if (l_before !== l_after) {
+                        if (l_after > l_before) {
+                            steps.push({ col: 'col-1', type: 'lower', idx: l_after - 1, set: true });
+                        } else {
+                            steps.push({ col: 'col-1', type: 'lower', idx: l_after, set: false });
+                        }
+                    }
+                    if (u_before !== u_after) {
+                        steps.push({ col: 'col-1', type: 'upper', set: u_after });
+                    }
+                }
+            }
+
+            if (isCarryUp) {
+                // 十の位を1増やす：現在の十の位の値に基づき正しい珠を操作
+                const t_u_before_tens = t_before >= 5;
+                const t_l_before_tens = t_before % 5;
+                const t_u_after_tens = t_after >= 5;
+                const t_l_after_tens = t_after % 5;
+
+                if (t_u_before_tens !== t_u_after_tens) {
+                    steps.push({ col: 'col-2', type: 'upper', set: t_u_after_tens });
+                }
+                if (t_l_before_tens !== t_l_after_tens) {
+                    if (t_l_after_tens > t_l_before_tens) {
+                        steps.push({ col: 'col-2', type: 'lower', idx: t_l_after_tens - 1, set: true });
+                    } else {
+                        steps.push({ col: 'col-2', type: 'lower', idx: t_l_after_tens, set: false });
+                    }
+                }
+            }
+
+            return steps;
+        }
+
+        function generateQuizQuestion(level) {
+            if (currentLevel !== level) {
+                resetStreak();
+            }
+            currentLevel = level;
+            currentStepIndex = 0;
+            const symbol = currentMode === 'addition' ? '+' : '-';
+            let a, b;
+
+            let found = false;
+            while (!found) {
+                if (currentMode === 'addition') {
+                    a = Math.floor(Math.random() * 9) + 1;
+                    b = Math.floor(Math.random() * 9) + 1;
+                    const v = a % 10;
+                    const sum = v + b;
+                    
+                    if (level === 1) { if (sum < 10 && ((v % 5) + b < 5)) found = true; }
+                    else if (level === 2) { if (sum < 10 && (v < 5 && v + b >= 5)) found = true; }
+                    else if (level === 3) { if (sum >= 10 && (v % 5 >= (10 - b))) found = true; }
+                    else if (level === 4) { if (sum >= 10 && (v % 5 < (10 - b))) found = true; }
+                } else {
+                    a = (level >= 3) ? (Math.floor(Math.random() * 40) + 10) : (Math.floor(Math.random() * 9) + 1);
+                    b = Math.floor(Math.random() * 9) + 1;
+                    if (a <= b) continue;
+                    const v = a % 10;
+                    
+                    if (level === 1) { if (v >= b && (v % 5 >= b)) found = true; }
+                    else if (level === 2) { if (v >= b && (v >= 5 && v - b < 5)) found = true; }
+                    else if (level === 3) { if (v < b && (v % 5 + (10 - b) < 5)) found = true; }
+                    else if (level === 4) { if (v < b && (v % 5 + (10 - b) >= 5)) found = true; }
+                }
+                if (found && `${a}${symbol}${b}` === lastProblemKey) found = false;
+            }
+
+            lastProblemKey = `${a}${symbol}${b}`;
+            const generatedSteps = calculateSteps(a, b, currentMode, level);
+            currentProblem = { a, b, steps: generatedSteps };
+            
+            document.getElementById('problem-text').innerText = `${a} ${symbol} ${b}`;
+            applyValueToBoard(a);
+            clearGuide();
+        }
+
+        function checkQuizStep(bead) {
+            const colId = bead.closest('.column').id;
+            const isUpper = bead.classList.contains('bead-upper');
+            const beadType = isUpper ? 'upper' : 'lower';
+            const area = bead.closest(isUpper ? '.upper-area' : '.lower-area');
+            const beads = Array.from(area.querySelectorAll('.bead'));
+            const idx = beads.indexOf(bead);
+
+            const step = currentProblem.steps[currentStepIndex];
+            if (!step) return;
+
+            const isPinchProblem = (currentMode === 'addition' && currentLevel === 2 && 
+                ['1+6', '1+7', '1+8', '2+6', '2+7', '3+6'].includes(`${currentProblem.a}+${currentProblem.b}`));
+
+            if (isPinchProblem) {
+                const lowerStep = currentProblem.steps.find(s => s.type === 'lower');
+                if (colId === 'col-1' && (beadType === 'upper' || (beadType === 'lower' && idx === lowerStep.idx))) {
+                    currentProblem.steps.forEach(s => {
+                        const targetCol = document.getElementById(s.col);
+                        if (s.type === 'upper') {
+                            const b = targetCol.querySelector('.bead-upper');
+                            if (s.set) b.classList.add('set'); else b.classList.remove('set');
+                        } else {
+                            const lowerBeads = targetCol.querySelectorAll('.bead-lower');
+                            if (s.set) { for (let i = 0; i <= s.idx; i++) lowerBeads[i].classList.add('set'); }
+                            else { for (let i = s.idx; i < lowerBeads.length; i++) lowerBeads[i].classList.remove('set'); }
+                        }
+                    });
+                    playSorobanSound();
+                    currentStepIndex = currentProblem.steps.length;
+                    clearGuide();
+                    showSuccess();
+                    return;
+                }
+            }
+
+            const isCorrectCol = (colId === step.col);
+            const isCorrectType = (beadType === step.type);
+            const isCorrectIdx = (step.type === 'upper') || (idx === step.idx);
+
+            if (isCorrectCol && isCorrectType && isCorrectIdx) {
+                toggleBead(bead);
+                playSorobanSound();
+                currentStepIndex++;
+                clearGuide();
+
+                if (currentStepIndex >= currentProblem.steps.length) {
+                    showSuccess();
+                }
+                return;
+            }
+
+            playBuzzerSound();
+            resetStreak();
+            showGuide(currentProblem.steps[currentStepIndex]);
+        }
+
+        // ゲーミフィケーション・ロジック
+        function updateStreak() {
+            currentStreak++;
+            updateStreakUI();
+            
+            let recordKey = currentMode;
+            if (currentMode === 'addition' || currentMode === 'subtraction') {
+                recordKey += `_lv${currentLevel}`;
+            }
+            
+            if (!highScores[recordKey] || currentStreak > highScores[recordKey]) {
+                highScores[recordKey] = currentStreak;
+                localStorage.setItem('soroban_highscores', JSON.stringify(highScores));
+            }
+        }
+
+        function resetStreak() {
+            currentStreak = 0;
+            updateStreakUI();
+        }
+
+        function updateStreakUI() {
+            const streakEl = document.getElementById('current-streak');
+            const titleEl = document.getElementById('current-title');
+            if (streakEl) streakEl.innerText = currentStreak;
+            
+            let title = "なし";
+            if (currentStreak >= 30) title = "そろばんマスター";
+            else if (currentStreak >= 21) title = "名人";
+            else if (currentStreak >= 11) title = "達人";
+            else if (currentStreak >= 6) title = "初段";
+            else if (currentStreak >= 1) title = "見習い";
+            
+            if (titleEl) titleEl.innerText = title;
+
+            if (currentStreak >= 30) {
+                document.body.classList.add('gold-mode');
+            } else {
+                document.body.classList.remove('gold-mode');
+            }
+        }
+
+        function getTitleByStreak(streak) {
+            if (streak >= 30) return "そろばんマスター";
+            if (streak >= 21) return "名人";
+            if (streak >= 11) return "達人";
+            if (streak >= 6) return "初段";
+            if (streak >= 1) return "見習い";
+            return "なし";
+        }
+
+        function displayRecords() {
+            const list = document.getElementById('record-list');
+            list.innerHTML = '';
+            
+            // 指示：入力モードを「たし算 Lv.1」の上にもってくる
+            const modes = [
+                { id: 'input', name: '入力モード' },
+                { id: 'addition_lv1', name: 'たし算 Lv.1' },
+                { id: 'addition_lv2', name: 'たし算 Lv.2' },
+                { id: 'addition_lv3', name: 'たし算 Lv.3' },
+                { id: 'addition_lv4', name: 'たし算 Lv.4' },
+                { id: 'subtraction_lv1', name: 'ひき算 Lv.1' },
+                { id: 'subtraction_lv2', name: 'ひき算 Lv.2' },
+                { id: 'subtraction_lv3', name: 'ひき算 Lv.3' },
+                { id: 'subtraction_lv4', name: 'ひき算 Lv.4' }
+            ];
+
+            modes.forEach(m => {
+                const score = highScores[m.id] || 0;
+                const title = getTitleByStreak(score);
+                const item = document.createElement('div');
+                item.className = 'record-item';
+                item.innerHTML = `
+                    <span>${m.name}</span>
+                    <div>
+                        <span class="title-badge" style="margin-right:10px;">${title}</span>
+                        <span class="record-val">${score}連勝</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function resetRecords() {
+            if (confirm("すべての記録を消去しますか？")) {
+                highScores = {};
+                localStorage.removeItem('soroban_highscores');
+                displayRecords();
+            }
+        }
+
+        function showGuide(step) {
+            clearGuide();
+            if (!step) return;
+            const col = document.getElementById(step.col);
+            let target;
+            if (step.type === 'upper') {
+                target = col.querySelector('.bead-upper');
+            } else {
+                target = col.querySelectorAll('.bead-lower')[step.idx];
+            }
+            if (target) target.classList.add('guide-flash');
+        }
+
+        function clearGuide() {
+            document.querySelectorAll('.bead').forEach(b => b.classList.remove('guide-flash'));
+        }
+
+        function showSuccess() {
+            playCorrectSound();
+            const feedback = document.getElementById('feedback');
+            feedback.classList.add('show');
+            updateStreak();
+            setTimeout(() => {
+                feedback.classList.remove('show');
+                if (currentMode === 'random') {
+                } else if (currentMode === 'addition' || currentMode === 'subtraction') {
+                    generateQuizQuestion(currentLevel);
+                }
+            }, 1000);
+        }
+
+        function showError() {
+            const feedback = document.getElementById('feedback-cross');
+            feedback.classList.add('show');
+            setTimeout(() => {
+                feedback.classList.remove('show');
+            }, 1000);
+        }
+
+        function generateRandomQuestion(maxPlace) {
+            const min = maxPlace;
+            const max = (maxPlace * 10) - 1;
+            let nextAnswer;
+            do {
+                nextAnswer = Math.floor(Math.random() * (max - min + 1)) + min;
+            } while (nextAnswer === currentAnswer && (max - min) > 0);
+            
+            currentAnswer = nextAnswer;
+            document.getElementById('answer-text').innerText = currentAnswer;
+            hideAnswer();
+            applyValueToBoard(currentAnswer);
+            playSorobanSound();
+        }
+
+        function applyValueToBoard(value) {
+            clearBoard(false);
+            const valStr = value.toString().split('').reverse();
+            valStr.forEach((digitStr, idx) => {
+                const digit = parseInt(digitStr);
+                const col = document.getElementById(`col-${idx + 1}`);
+                if (!col) return;
+                const upper = col.querySelector('.bead-upper');
+                const lowerBeads = Array.from(col.querySelectorAll('.bead-lower'));
+                let remaining = digit;
+                if (digit >= 5) { upper.classList.add('set'); remaining -= 5; }
+                for (let i = 0; i < remaining; i++) lowerBeads[i].classList.add('set');
+            });
+        }
+
+        function clearBoard(playSound = true) {
+            document.querySelectorAll('.bead').forEach(b => b.classList.remove('set'));
+            clearGuide();
+            if (playSound) {
+                const answerText = document.getElementById('answer-text');
+                const problemText = document.getElementById('problem-text');
+                const inputDisplay = document.getElementById('input-display');
+                if (answerText) answerText.innerText = '0';
+                if (problemText) problemText.innerText = '?';
+                if (currentMode === 'input') inputDisplay.innerText = '桁を選んで開始';
+                currentAnswer = 0;
+                currentProblem = null;
+                lastProblemKey = "";
+                playSorobanSound();
+            }
+        }
+
+        function toggleAnswer() { document.getElementById('answer-text').classList.toggle('visible'); }
+        function hideAnswer() { document.getElementById('answer-text').classList.remove('visible'); }
+        function playSorobanSound() { moveSound.currentTime = 0; moveSound.play().catch(() => {}); }
+        function playBuzzerSound() { buzzerSound.currentTime = 0; buzzerSound.play().catch(() => {}); }
+        function playCorrectSound() { correctSound.currentTime = 0; correctSound.play().catch(() => {}); }
+
+        function updateCurrentTotal() {
+            const total = calculateCurrentTotal();
+            console.log("Total:", total);
+        }
+    </script>
+</body>
+</html>
